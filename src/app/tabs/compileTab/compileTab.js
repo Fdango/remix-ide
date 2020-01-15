@@ -119,6 +119,8 @@ class CompileTab {
       return provider.exists(url, (error, exist) => {
         if (error) return filecb(error)
         if (!exist && provider.type === 'localhost') return filecb(`not found ${url}`)
+        if (!exist && url.indexOf('browser/') === 0) return filecb(`not found ${url}`)
+        if (!exist && url.indexOf('localhost/') === 0) return filecb(`not found ${url}`)
         if (exist) return provider.get(url, filecb)
 
         // trying to resolve external URL
