@@ -28,6 +28,9 @@ var sources = [
   {
     'localhost/src/gmbh/company.sol': {content: assetsTestContract},
     'localhost/src/gmbh/contract.sol': {content: gmbhTestContract}
+  },
+  {
+    'browser/test_import_node_modules.sol': {content: 'import "openzeppelin-solidity/contracts/math/SafeMath.sol";'}
   }
 ]
 
@@ -40,6 +43,18 @@ module.exports = {
   },
   'Remixd': function (browser) {
     runTests(browser)
+  },
+  'Import from node_modules': function (browser) {
+    /*
+      when a relative import is used (i.e import "openzeppelin-solidity/contracts/math/SafeMath.sol")
+      remix (as well as truffle) try to resolve it against the node_modules and installed_contracts folder.
+    */
+    browser
+      .waitForElementVisible('#icon-panel', 2000)
+      .clickLaunchIcon('fileExplorers')
+      .addFile('test_import_node_modules.sol', sources[3]['browser/test_import_node_modules.sol'])
+      .testContracts('test_import_node_modules.sol', sources[3]['browser/test_import_node_modules.sol'], ['SafeMath'])
+      .end()
   },
   tearDown: sauce
 }
@@ -100,7 +115,6 @@ function runTests (browser, testData) {
     .click('[data-path="localhost/folder1/renamed_contract_' + browserName + '.sol"]')
     .clickLaunchIcon('pluginManager')
     .scrollAndClick('#pluginManager article[id="remixPluginManagerListItem_remixd"] button')
-    .end()
 }
 
 function testImportFromRemixd (browser, callback) {
