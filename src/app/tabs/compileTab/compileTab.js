@@ -99,6 +99,15 @@ class CompileTab {
       })
   }
 
+  /**
+    * import the content of @arg url.
+    * first look in the browser localstorage (browser explorer) or locahost explorer. it depend if the url start with `browser/*` or  `localhost/*`
+    * then check if the @arg url match any external url
+    * then check if the @arg url could be located in the localhost
+    *
+    * @param {String} url  - URL of the content. can be basically anything like file located in the browser explorer, in the localhost explorer, raw HTTP, github address etc...
+    * @param {Function} cb  - callback
+    */
   importFileCb (url, filecb) {
     if (url.indexOf('remix_tests.sol') !== -1) return filecb(null, remixTests.assertLibCode)
 
@@ -109,24 +118,28 @@ class CompileTab {
       }
       return provider.exists(url, (error, exist) => {
         if (error) return filecb(error)
-        if (exist) {
-          return provider.get(url, filecb)
-        }
-        this.importExternal(url, filecb)
+        if (!exist && provider.type === 'localhost') return filecb(`not found ${url}`)
+        if (exist) return provider.get(url, filecb)
+
+        // trying to resolve external URL
+        this.importExternal(url, (error, content) => {
+          if (!error) return filecb(null, content)
+
+          // trying to resolve node_modules / installed_contracts folder
+          if (this.compilerImport.isRelativeImport(url)) {
+            // try to resolve localhost modules (aka truffle imports)
+            var splitted = /([^/]+)\/(.*)$/g.exec(url)
+            return async.tryEach([
+              (cb) => { this.importFileCb('localhost/installed_contracts/' + url, cb) },
+              (cb) => { if (!splitted) { cb('URL not parseable: ' + url) } else { this.importFileCb('localhost/installed_contracts/' + splitted[1] + '/contracts/' + splitted[2], cb) } },
+              (cb) => { this.importFileCb('localhost/node_modules/' + url, cb) },
+              (cb) => { if (!splitted) { cb('URL not parseable: ' + url) } else { this.importFileCb('localhost/node_modules/' + splitted[1] + '/contracts/' + splitted[2], cb) } }],
+              (error, result) => { filecb(error, result) }
+            )
+          }
+        })
       })
     }
-    if (this.compilerImport.isRelativeImport(url)) {
-      // try to resolve localhost modules (aka truffle imports)
-      var splitted = /([^/]+)\/(.*)$/g.exec(url)
-      return async.tryEach([
-        (cb) => { this.importFileCb('localhost/installed_contracts/' + url, cb) },
-        (cb) => { if (!splitted) { cb('URL not parseable: ' + url) } else { this.importFileCb('localhost/installed_contracts/' + splitted[1] + '/contracts/' + splitted[2], cb) } },
-        (cb) => { this.importFileCb('localhost/node_modules/' + url, cb) },
-        (cb) => { if (!splitted) { cb('URL not parseable: ' + url) } else { this.importFileCb('localhost/node_modules/' + splitted[1] + '/contracts/' + splitted[2], cb) } }],
-        (error, result) => { filecb(error, result) }
-      )
-    }
-    this.importExternal(url, filecb)
   }
 
 }
